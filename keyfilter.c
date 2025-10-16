@@ -5,86 +5,104 @@
 #define MAX_LINES 1000
 #define MAX_LEN 100
 
-// Skontroluje, či text začína daným prefixom (ignoruje veľkosť písmen)
+// kuknem či text začína na prefix (neriešim veľké/malé písmená)
 int startsWith(const char *prefix, const char *text) {
-    int plen = strlen(prefix);
-    int tlen = strlen(text);
-    if (tlen < plen) return 0;
-    for (int i = 0; i < plen; i++)
-        if (tolower(prefix[i]) != tolower(text[i])) return 0;
+    int prefixLength = strlen(prefix);
+    int textLength = strlen(text);
+    if (textLength < prefixLength)  {
+        return 0;
+    }
+    for (int charIndex = 0; charIndex < prefixLength; charIndex++) {
+        if (tolower(prefix[charIndex]) != tolower(text[charIndex])) {
+            return 0;
+        }
+    }
     return 1;
 }
 
-// Porovná dva reťazce ignorujúc veľkosť písmen
-int equalsIgnoreCase(const char *a, const char *b) {
-    int i = 0;
-    while (a[i] && b[i]) {
-        if (tolower(a[i]) != tolower(b[i])) return 0;
-        i++;
+// porovnáva dva texty bez ohľadu na veľké/malé písmená
+int equalsIgnoreCase(const char *firstText, const char *secondText) {
+    int charIndex = 0;
+    while (firstText[charIndex] && secondText[charIndex]) {
+        if (tolower(firstText[charIndex]) != tolower(secondText[charIndex])) {
+            return 0;
+        }
+        charIndex++;
     }
-    return a[i] == b[i];
+    return firstText[charIndex] == secondText[charIndex];
 }
 
 int main(int argc, char *argv[]) {
+    // prefix z argumentu, ak nie je zadaný, nech je prázdny
     char *prefix = (argc > 1) ? argv[1] : "";
 
     char cities[MAX_LINES][MAX_LEN + 1];
     int totalCities = 0;
 
-    // Načíta dáta zo stdin
+    // načítam mestá zo vstupu
     while (totalCities < MAX_LINES && fgets(cities[totalCities], MAX_LEN + 1, stdin)) {
+        // odstránim ENTER na konci, lebo fgets ho pridal
         cities[totalCities][strcspn(cities[totalCities], "\r\n")] = 0;
-        if (cities[totalCities][0] != 0) totalCities++;
+        if (cities[totalCities][0] != 0)
+            totalCities++;
     }
 
     int matchingIndexes[MAX_LINES];
-    int matchCount = 0;
+    int numberOfMatches = 0;
     int exactMatchIndex = -1;
 
-    // Nájde zhody a presnú zhodu
-    for (int i = 0; i < totalCities; i++) {
-        if (startsWith(prefix, cities[i])) {
-            matchingIndexes[matchCount++] = i;
-            if (equalsIgnoreCase(prefix, cities[i])) exactMatchIndex = i;
+    // prejdeme všetky mestá a hľadáme tie čo začínajú na prefix
+    for (int cityIndex = 0; cityIndex < totalCities; cityIndex++) {
+        if (startsWith(prefix, cities[cityIndex])) {
+            matchingIndexes[numberOfMatches++] = cityIndex;
+            if (equalsIgnoreCase(prefix, cities[cityIndex])) {
+                exactMatchIndex = cityIndex;
+            }
         }
     }
 
-    if (matchCount == 0) {
+    // nič sa nenašlo
+    if (numberOfMatches == 0) {
         printf("Not found\n");
         return 0;
     }
 
-    // Ak zostala len jedna možnosť, vypíšeme ju a končíme
-    if (matchCount == 1) {
+    // našlo sa len jedno mesto
+    if (numberOfMatches == 1) {
         printf("Found: %s\n", cities[matchingIndexes[0]]);
         return 0;
     }
 
-    // Ak existuje presná zhoda, vypíšeme ju
+    // ak existuje presná zhoda
     if (exactMatchIndex != -1) {
         printf("Found: %s\n", cities[exactMatchIndex]);
     }
 
-    // Vypočítame Enable písmená
-    char enableLetters[256] = {0};
-    int anyEnable = 0;
-    int prefixLen = strlen(prefix);
+    char possibleLetters[256] = {0};
+    int hasNextLetter = 0;
+    int prefixLength = strlen(prefix);
 
-    for (int i = 0; i < matchCount; i++) {
-        int idx = matchingIndexes[i];
-        if (idx == exactMatchIndex) continue; // presnú zhodu ignorujeme
-        char nextChar = cities[idx][prefixLen];
+    // pozriem, aké ďalšie písmená sa môžu dopísať (Enable)
+    for (int matchIndex = 0; matchIndex < numberOfMatches; matchIndex++) {
+        int currentCityIndex = matchingIndexes[matchIndex];
+        if (currentCityIndex == exactMatchIndex) {
+             continue;
+        }
+
+        char nextChar = cities[currentCityIndex][prefixLength];
         if (isalpha(nextChar)) {
-            enableLetters[(unsigned char)tolower(nextChar)] = 1;
-            anyEnable = 1;
+            possibleLetters[(unsigned char)tolower(nextChar)] = 1;
+            hasNextLetter = 1;
         }
     }
 
-    // Vypíš Enable iba ak existuje nejaké ďalšie písmeno
-    if (anyEnable) {
+    // ak existujú nejaké možné ďalšie písmená, vypíšem ich
+    if (hasNextLetter) {
         printf("Enable: ");
-        for (char c = 'a'; c <= 'z'; c++) {
-            if (enableLetters[(unsigned char)c]) printf("%c", c);
+        for (char letter = 'a'; letter <= 'z'; letter++) {
+            if (possibleLetters[(unsigned char)letter]) {
+                printf("%c", letter);
+            }
         }
         printf("\n");
     }
