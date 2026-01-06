@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krvavý Kúcan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,700;1,400&display=swap');
+        
+        body { 
+            background: #0a0a0f; 
+            color: #d4c5aa; 
+            font-family: 'Crimson Text', serif;
+            height: 100vh; 
+            overflow: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(139, 0, 0, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(25, 25, 112, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .grid-layout { 
+            display: grid; 
+            grid-template-columns: 320px 1fr 360px; 
+            grid-template-rows: 80px 1fr; 
+            height: 100vh;
+            position: relative;
+            z-index: 2;
+        }
+        
+        header { 
+            transition: all 0.7s ease; 
+            border-bottom: 3px solid;
+            background: linear-gradient(135deg, #1a0f0f 0%, #0f0a1a 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(139, 0, 0, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+        }
+        
+        header.is-day { 
+            background: linear-gradient(135deg, #1a1a3a 0%, #0f1a2a 100%);
+            border-bottom-color: #4a90e2;
+            box-shadow: inset 0 0 60px rgba(74, 144, 226, 0.15);
+        }
+        
+        header.is-night { 
+            background: linear-gradient(135deg, #2a0a0a 0%, #1a0a1a 100%);
+            border-bottom-color: #8b0000;
+            box-shadow: inset 0 0 60px rgba(139, 0, 0, 0.2);
+            animation: night-pulse 4s infinite;
+        }
+        
+        @keyframes night-pulse {
+            0%, 100% { box-shadow: inset 0 0 60px rgba(139, 0, 0, 0.2); }
+            50% { box-shadow: inset 0 0 80px rgba(139, 0, 0, 0.35); }
+        }
+        
+        .time-badge { 
+            padding: 10px 24px; 
+            border-radius: 12px; 
+            font-weight: 900; 
+            font-size: 15px; 
+            letter-spacing: 3px;
+            font-family: 'Cinzel', serif;
+            text-transform: uppercase;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        
+        .badge-day { 
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white; 
+            box-shadow: 0 0 30px rgba(74, 144, 226, 0.6), 0 4px 20px rgba(0,0,0,0.5);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .badge-night { 
+            background: linear-gradient(135deg, #8b0000 0%, #5a0000 100%);
+            color: #ffebcd; 
+            box-shadow: 0 0 30px rgba(139, 0, 0, 0.7), 0 4px 20px rgba(0,0,0,0.5);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            animation: badge-glow 2s infinite;
+        }
+        
+        @keyframes badge-glow {
+            0%, 100% { box-shadow: 0 0 30px rgba(139, 0, 0, 0.7), 0 4px 20px rgba(0,0,0,0.5); }
+            50% { box-shadow: 0 0 50px rgba(139, 0, 0, 0.9), 0 4px 20px rgba(0,0,0,0.5); }
+        }
+        
+        .sidebar { 
+            background: linear-gradient(180deg, #0f0a15 0%, #1a0f1a 100%);
+            border: 2px solid #2a1f2f;
+            overflow-y: auto; 
+            padding: 20px;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+        }
+        
+        .main-area { 
+            background: 
+                radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 70%),
+                url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grain" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="%23000"/><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.02"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            position: relative;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+        
+        .main-area::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 30%, rgba(139, 0, 0, 0.05) 100%);
+            pointer-events: none;
+        }
+        
+        /* KULATÝ STŮL */
+        .round-table {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 35%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle at 35% 35%, #2a1a1a 0%, #1a0a0a 50%, #0a0505 100%);
+            border: 8px solid #3a2020;
+            box-shadow: 
+                0 0 60px rgba(139, 0, 0, 0.4),
+                inset 0 0 80px rgba(0, 0, 0, 0.8),
+                inset 0 10px 30px rgba(139, 0, 0, 0.2);
+            z-index: 5;
+        }
+        
+        .round-table::before {
+            content: '';
+            position: absolute;
+            inset: 15%;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, rgba(139, 0, 0, 0.1) 0%, transparent 70%);
+            border: 2px solid rgba(139, 0, 0, 0.2);
+        }
+        
+        .round-table::after {
+            content: '⏰';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            opacity: 0.3;
+            filter: drop-shadow(0 0 10px rgba(139, 0, 0, 0.5));
+        }
+        
+        .player-card { 
+            position: absolute; 
+            width: 120px; 
+            transform: translate(-50%, -50%); 
+            z-index: 10; 
+            text-align: center; 
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        }
+        
+        .token { 
+            width: 85px; 
+            height: 85px; 
+            border-radius: 50%; 
+            border: 4px solid #3a2f3f;
+            background: 
+                radial-gradient(circle at 30% 30%, #2a2a3a 0%, #0f0a1a 100%);
+            margin: 0 auto 8px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            position: relative; 
+            cursor: pointer; 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 
+                0 0 20px rgba(0,0,0,0.8),
+                inset 0 2px 4px rgba(255,255,255,0.1);
+        }
+        
+        .token:hover {
+            transform: scale(1.1);
+            filter: brightness(1.2);
+        }
+        
+        .border-villager { 
+            border-color: #2d5a2d !important;
+            background: radial-gradient(circle at 30% 30%, #1a3a1a 0%, #0a1a0a 100%);
+            box-shadow: 
+                0 0 25px rgba(45, 90, 45, 0.5),
+                inset 0 2px 4px rgba(45, 200, 45, 0.2);
+        }
+        
+        .border-outsider { 
+            border-color: #8b5a00 !important;
+            background: radial-gradient(circle at 30% 30%, #3a2a1a 0%, #1a1a0a 100%);
+            box-shadow: 
+                0 0 25px rgba(139, 90, 0, 0.5),
+                inset 0 2px 4px rgba(249, 115, 22, 0.2);
+        }
+        
+        .border-evil { 
+            border-color: #8b0000 !important;
+            background: radial-gradient(circle at 30% 30%, #3a0a0a 0%, #1a0a0a 100%);
+            box-shadow: 
+                0 0 25px rgba(139, 0, 0, 0.6),
+                inset 0 2px 4px rgba(239, 68, 68, 0.3);
+        }
+        
+        .dead .token::after { 
+            content: '☠'; 
+            position: absolute; 
+            font-size: 48px; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            z-index: 20; 
+            opacity: 0.95;
+            color: #8b0000;
+            filter: drop-shadow(0 0 8px rgba(139, 0, 0, 0.8));
+            animation: skull-float 2s ease-in-out infinite;
+        }
+        
+        @keyframes skull-float {
+            0%, 100% { transform: translate(-50%, -50%) rotate(-5deg); }
+            50% { transform: translate(-50%, -52%) rotate(5deg); }
+        }
+
+        .paprcka { 
+            position: absolute; 
+            top: -50px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-size: 40px; 
+            z-index: 100; 
+            animation: hand-wave 1s ease-in-out infinite;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        
+        @keyframes hand-wave { 
+            0%, 100% { transform: translate(-50%, 0) rotate(-10deg); } 
+            50% { transform: translate(-50%, -8px) rotate(10deg); } 
+        }
+        
+        .nomination-arrow { 
+            position: absolute; 
+            top: -80px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-size: 55px; 
+            z-index: 150; 
+            animation: arrow-pulse 1s ease-in-out infinite;
+            filter: drop-shadow(0 0 12px rgba(139, 0, 0, 0.9));
+        }
+        
+        @keyframes arrow-pulse { 
+            0%, 100% { transform: translate(-50%, 0) scale(1); } 
+            50% { transform: translate(-50%, -10px) scale(1.15); } 
+        }
+
+        .chat-box { 
+            background: linear-gradient(135deg, #0a0a15 0%, #15091a 100%);
+            height: 130px; 
+            overflow-y: auto; 
+            font-size: 12px; 
+            padding: 10px; 
+            border: 2px solid #2a1f2f;
+            border-radius: 8px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        .msg { 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            max-width: 85%; 
+            font-size: 12px; 
+            color: #d4c5aa;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .msg-me { 
+            background: linear-gradient(135deg, #3a0a0a 0%, #2a0505 100%);
+            align-self: flex-end; 
+            border: 1px solid #5a0000;
+        }
+        
+        .msg-them { 
+            background: linear-gradient(135deg, #1a1a3a 0%, #0f0f2a 100%);
+            align-self: flex-start; 
+            border: 1px solid #2a2a5a;
+        }
+        
+        .player-note { 
+            position: absolute; 
+            bottom: -14px; 
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            color: white; 
+            font-size: 8px; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            z-index: 50;
+            font-family: 'Cinzel', serif;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .status-badge { 
+            position: absolute; 
+            top: -12px; 
+            right: -12px; 
+            background: linear-gradient(135deg, #1a0a0a 0%, #0a0a1a 100%);
+            border-radius: 14px; 
+            padding: 3px 8px; 
+            min-width: 28px; 
+            height: 28px; 
+            font-size: 13px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border: 2px solid #3a2f3f;
+            z-index: 60;
+            white-space: nowrap; 
+            box-shadow: 0 3px 6px rgba(0,0,0,0.6);
+        }
+        
+        /* Lobby Screen */
+        #lobby {
+            background: 
+                linear-gradient(135deg, rgba(10, 10, 15, 0.95) 0%, rgba(26, 10, 26, 0.95) 100%),
+                url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grain" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="%23000"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        }
+        
+        #lobby h1 {
+            font-family: 'Cinzel', serif;
+            text-shadow: 
+                0 0 20px rgba(139, 0, 0, 0.8),
+                0 0 40px rgba(139, 0, 0, 0.5),
+                2px 2px 4px rgba(0,0,0,0.8);
+            animation: title-glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes title-glow {
+            0%, 100% { text-shadow: 0 0 20px rgba(139, 0, 0, 0.8), 0 0 40px rgba(139, 0, 0, 0.5), 2px 2px 4px rgba(0,0,0,0.8); }
+            50% { text-shadow: 0 0 30px rgba(139, 0, 0, 1), 0 0 60px rgba(139, 0, 0, 0.7), 2px 2px 4px rgba(0,0,0,0.8); }
+        }
+        
+        button {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        input {
+            font-family: 'Crimson Text', serif;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus {
+            box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #0a0a0f;
+            border-left: 1px solid #2a1f2f;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #5a0000 0%, #3a0000 100%);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #8b0000 0%, #5a0000 100%);
+        }
+        
+        .section-header {
+            font-family: 'Cinzel', serif;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .role-section {
+            background: linear-gradient(135deg, rgba(26, 15, 26, 0.3) 0%, rgba(15, 10, 26, 0.3) 100%);
+            border: 1px solid #2a1f2f;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div id="lobby" class="fixed inset-0 z-[3000] flex items-center justify-center p-6 text-center">
+    <div class="bg-gradient-to-br from-gray-900 via-black to-gray-900 p-12 rounded-3xl border-2 border-red-900 w-full max-w-md shadow-2xl relative">
+        <div class="absolute inset-0 rounded-3xl opacity-20" style="background: radial-gradient(circle at center, rgba(139,0,0,0.3), transparent);"></div>
+        <h1 class="relative text-5xl font-black text-red-700 mb-8 uppercase italic tracking-widest">KRVAVÝ KÚCAN</h1>
+        <input id="joinRoom" type="text" placeholder="KÓD MIESTNOSTI" class="relative w-full bg-black p-5 border-2 border-gray-800 rounded-xl text-white mb-4 uppercase outline-none focus:border-red-600 font-bold tracking-wider">
+        <input id="joinName" type="text" placeholder="TVOJE MENO" class="relative w-full bg-black p-5 border-2 border-gray-800 rounded-xl text-white mb-6 outline-none focus:border-blue-600 tracking-wide">
+        <button onclick="enterGame(false)" class="relative w-full bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-600 hover:to-blue-500 p-5 rounded-xl font-bold mb-3 uppercase transition shadow-lg">Vstúpiť ako Hráč</button>
+        <button onclick="enterGame(true)" class="relative w-full bg-gradient-to-r from-red-900/50 to-red-800/50 hover:from-red-900/70 hover:to-red-800/70 p-5 rounded-xl font-bold border-2 border-red-700 uppercase transition shadow-lg">Storyteller</button>
+    </div>
+</div>
+
+<div id="gameRoot" class="hidden grid-layout">
+    <header id="mainHeader" class="col-span-3 flex items-center justify-between px-8">
+        <div class="flex items-center gap-6 text-sm">
+            <div class="text-white font-black uppercase bg-black/60 px-5 py-2 rounded-lg italic border border-red-900/30 shadow-lg" style="font-family: 'Cinzel', serif; letter-spacing: 2px;">KRVAVÝ KÚCAN</div>
+            <div id="myInfo" class="text-gray-300 font-medium tracking-wide"></div>
+        </div>
+        <div id="stControls" class="hidden flex gap-3">
+            <button onclick="distributeRoles()" class="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 px-5 py-2.5 rounded-lg text-xs font-bold uppercase shadow-lg">Rozdať Role</button>
+            <button onclick="toggleTime()" class="bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-lg text-xs font-bold uppercase border-2 border-white/20 shadow-lg">Noc / Deň</button>
+            <button onclick="hardReset()" class="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 px-5 py-2.5 rounded-lg text-xs font-bold uppercase shadow-lg">Reset</button>
+        </div>
+        <div id="curTime" class="time-badge">DEŇ</div>
+    </header>
+
+    <aside class="sidebar"><div id="roleList" class="space-y-4 text-xs"></div></aside>
+    <main class="main-area">
+        <div class="round-table"></div>
+        <div id="tableCircle" class="w-full h-full relative"></div>
+    </main>
+    <aside class="sidebar border-l-2 border-gray-800 flex flex-col gap-5">
+        <h3 class="section-header text-xs font-black text-gray-500 border-b-2 border-gray-800 uppercase text-center pb-3">Pošta</h3>
+        <div id="allChats" class="flex-1 overflow-y-auto space-y-6"></div>
+    </aside>
+</div>
+
+<div id="stModal" class="hidden fixed inset-0 bg-black/95 z-[4000] flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-gradient-to-br from-gray-900 via-black to-gray-900 p-8 rounded-2xl border-2 border-red-900 w-full max-w-sm text-center shadow-2xl">
+        <h2 id="targetName" class="text-2xl font-bold mb-6 text-white uppercase italic" style="font-family: 'Cinzel', serif;"></h2>
+        <div class="grid grid-cols-2 gap-3 text-xs font-bold uppercase">
+            <button onclick="stAction('is_nominated')" class="bg-gradient-to-r from-orange-600 to-orange-700 p-5 rounded-lg text-white col-span-2 text-base shadow-lg hover:from-orange-500 hover:to-orange-600 transition">📢 NOMINOVAŤ</button>
+            <button onclick="stAction('is_dead')" class="bg-gradient-to-r from-red-600 to-red-700 p-5 rounded-lg text-white shadow-lg hover:from-red-500 hover:to-red-600 transition">Zabiť / Oživiť</button>
+            <button onclick="stAction('status_drunk')" class="bg-gradient-to-r from-amber-700 to-amber-800 p-5 rounded-lg text-white shadow-lg hover:from-amber-600 hover:to-amber-700 transition">🍺 OPITÝ</button>
+            <button onclick="stAction('status_poisoned')" class="bg-gradient-to-r from-purple-700 to-purple-800 p-5 rounded-lg text-white shadow-lg hover:from-purple-600 hover:to-purple-700 transition">🧪 OTRÁVENÝ</button>
+            <button onclick="stAction('status_protected')" class="bg-gradient-to-r from-blue-700 to-blue-800 p-5 rounded-lg text-white shadow-lg hover:from-blue-600 hover:to-blue-700 transition">🛡️ CHRÁNENÝ</button>
+            <button onclick="stAction('status_grandchild')" class="bg-gradient-to-r from-green-700 to-green-800 p-5 rounded-lg text-white col-span-2 shadow-lg hover:from-green-600 hover:to-green-700 transition">👶 VNUK</button>
+            <button onclick="closeSt()" class="w-full mt-5 text-gray-400 hover:text-white underline col-span-2 text-sm transition">Zavrieť</button>
+        </div>
+    </div>
+</div>
+
+<div id="noteModal" class="hidden fixed inset-0 bg-black/95 z-[4000] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-gradient-to-br from-gray-900 via-black to-gray-900 p-6 rounded-2xl border-2 border-blue-900 w-full max-w-sm max-h-[80vh] flex flex-col text-white shadow-2xl">
+        <h2 id="noteTargetName" class="text-xl font-bold mb-5 uppercase text-center italic" style="font-family: 'Cinzel', serif;">Tip na rolu</h2>
+        <div id="noteRoleList" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 text-[10px] font-bold"></div>
+        <button onclick="closeNote()" class="mt-5 bg-gradient-to-r from-gray-800 to-gray-900 p-4 rounded-lg font-bold uppercase text-xs shadow-lg hover:from-gray-700 hover:to-gray-800 transition">Zavrieť</button>
+    </div>
+</div>
+
+<script>
+    const u = 'https://frenqgaxsezwukljnwqe.supabase.co', k = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZyZW5xZ2F4c2V6d3VrbGpud3FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MDU5NzUsImV4cCI6MjA4MzE4MTk3NX0.yTEWdNtl-vtr3o6mJZ1eEd8Ut2qo_pGlE1LjxybRLk8';
+    const sb = supabase.createClient(u, k);
+
+    let myId = localStorage.getItem('m_id'), roomCode = null, isST = false, players = [], myNotes = JSON.parse(localStorage.getItem('m_notes') || '{}'), activeTarget = null;
+
+    const ROLES_DATA = {
+        DEMON: { "MIGMIGMAN": "Každú noc musí zabiť jedného hráča, ale môže aj streliť do mŕtvoly." },
+        POMOCNICI: { 
+            "TRÁVIČ": "Každú noc môže otráviť jedného hráča. Otrávenému hráčovi schopnosť danú noc a deň nefunguje.",
+            "ŠARLOTOVÁ DÁMA": "Akonáhle bude Démon popravený tak sa ŠD stane Démonom.",
+            "ŠPIÓN": "Každú noc dostane info o roli jedného vybraného hráča.",
+            "MIGAL": "Ak je v hre, 1 z dedinčanov sa stáva opilcom. Migal o tom vie, ale opilec netuší, že je opitý."
+        },
+        PODIVINI: { 
+            "OPILEC": "myslí si, že má inú rolu, než v skutočnosti má. To znamená, že jeho schopnosť nefunguje správne.",
+            "ANDEL": "Ak bude Anjel popravený počas dňa, dobro okamžite prehrá.",
+            "NEŠIKA": "keď zomrieš, musíš vybrať hráča; ak je zlý, dobro prehrá.",
+            "ŠAŠO": "Pre všetky schopnosti Dedinčanov sa javí ako ZLO.",
+            "BABIČKA": "Vie kto je jej VNUK a ma na starosti ho chrániť.(Ked je v hre babička je tam aj vnuk, no vnuk sa neberie ako Podivín)",
+            "VNUK": "Ked zomrieš , zomiera aj tvoja BABIČKA (O tom, že je VNUK hráč nevie a má normálne priradenú rolu od Dedinčanov)."
+        },
+        DEDINCANIA: { 
+            "VOJAK": "Nemôže byť zabitý Démonom v noci.",
+            "DETEKTÍV": "Každú noc vyberie 2 hráčov a zistí, či je aspoň 1 zlý",
+            "OCHRANCA": "Každú noc vyberie hráča na ochranu. Ak tento hráč zomrie, Ochranca zomrie miesto neho.",
+            "HROBNÍK": "Ak je niekto popravený ( Nie zabitý Démonom) , následnú noc zisti ako rola bol.",
+            "LOVEC": "Raz za hru počas dňa môže vystreliť na hráča, pokiaľ to bol Démon tak zomrie.",
+            "VEŠTKYŇA": "Každú noc vyberie 2 hráčov a zistí, či je jeden z nich Démon.",
+            "DRBNA": "Na začiatku hry dostane info o tom, že 1 z 2 hráčov je nejaká rola.",
+            "HAVRAN": "Ak je HAVRAN v noci zabitý, dostane info o roli hráča, ktorého si ešte v tu noc vyberie.",
+            "GEMBLÉR": "Každú noc môže vybrať jedného hráča, ak to je zlý tak to zistí, ak ale bol dobrý, GEMBLÉR zomiera.",
+            "STAROSTA": "Pokiaľ je živý jeho hlas ma hodnotu za 2 ľudí, akonáhle zomrie je z neho obyčajný dedinčan ."
+        }
+    };
+
+    const SETUP = { 5:[1,1,1,2], 6:[1,1,1,3], 7:[1,1,2,3], 8:[1,1,3,3], 9:[1,2,2,4], 10:[1,2,2,5], 11:[1,2,3,5], 12:[1,3,2,6] };
+
+    function getRoleColorClass(roleName) {
+        if (!roleName) return "";
+        if (Object.keys(ROLES_DATA.DEDINCANIA).includes(roleName)) return "border-villager";
+        if (Object.keys(ROLES_DATA.PODIVINI).includes(roleName)) return "border-outsider";
+        return "border-evil"; 
+    }
+
+    async function enterGame(asST) {
+        isST = asST; roomCode = document.getElementById('joinRoom').value.trim().toUpperCase();
+        if(!roomCode) return;
+        if (isST) { myId = 'st_' + roomCode; await sb.from('game_state').upsert({ room_code: roomCode, is_night: false }); } 
+        else { const n = document.getElementById('joinName').value.trim(); if(!n) return; myId = 'p_' + Date.now(); await sb.from('players').insert([{ id_custom: myId, name: n, room_code: roomCode, position: Date.now() }]); }
+        localStorage.setItem('m_id', myId);
+        document.getElementById('lobby').classList.add('hidden'); document.getElementById('gameRoot').classList.remove('hidden');
+        sync(); setInterval(sync, 2500);
+    }
+
+    async function sync() {
+        const { data: ps } = await sb.from('players').select('*').eq('room_code', roomCode).order('id', { ascending: true });
+        const { data: gs } = await sb.from('game_state').select('*').eq('room_code', roomCode).maybeSingle();
+        players = ps || [];
+        if(gs) {
+            const b = document.getElementById('curTime'), h = document.getElementById('mainHeader');
+            if (gs.is_night) { b.innerText = '🌙 NOC'; b.className = 'time-badge badge-night'; h.className = 'col-span-3 flex items-center justify-between px-8 is-night'; }
+            else { b.innerText = '☀️ DEŇ'; b.className = 'time-badge badge-day'; h.className = 'col-span-3 flex items-center justify-between px-8 is-day'; }
+        }
+        const me = players.find(p => p.id_custom === myId);
+        if(!isST && me) document.getElementById('myInfo').innerHTML = `${me.name} | <b class="text-blue-400 uppercase font-black">${me.role || 'ČAKÁ SA NA ROLU'}</b>`;
+        else if(isST) { document.getElementById('stControls').classList.remove('hidden'); document.getElementById('myInfo').innerText = "STORYTELLER"; }
+        renderTable(); renderChats(); renderGrimoire();
+    }
+
+    function renderGrimoire() {
+        const list = document.getElementById('roleList');
+        const COLORS = { DEDINCANIA: 'text-green-400', PODIVINI: 'text-orange-400', DEMON: 'text-red-400', POMOCNICI: 'text-red-400' };
+        let html = '';
+
+        if (isST) {
+            html += '<h3 class="section-header text-xs font-black text-red-500 mb-5 border-b-2 border-gray-800 uppercase text-center pb-3 tracking-widest">ST PREHĽAD ROLÍ</h3>';
+            players.forEach(p => {
+                let roleColor = "text-gray-500";
+                if (Object.keys(ROLES_DATA.DEDINCANIA).includes(p.role)) roleColor = "text-green-400";
+                else if (Object.keys(ROLES_DATA.PODIVINI).includes(p.role)) roleColor = "text-orange-400";
+                else if (p.role) roleColor = "text-red-400";
+                
+                let statuses = '';
+                if(p.status_drunk) statuses += '🍺';
+                if(p.status_poisoned) statuses += '🧪';
+                if(p.status_protected) statuses += '🛡️';
+                if(p.status_grandchild) statuses += '👶';
+
+                html += `
+                    <div class="role-section">
+                        <span class="text-white font-black uppercase text-sm">${p.name} ${p.is_dead ? '💀' : ''}</span>
+                        <span class="${roleColor} font-bold text-xs tracking-wider block mt-1">${p.role || 'ŽIADNA ROLA'} ${statuses}</span>
+                    </div>
+                `;
+            });
+            html += '<div class="my-8 border-t-2 border-red-900/30"></div>';
+        }
+
+        html += '<h3 class="section-header text-xs font-black text-gray-500 mb-5 border-b-2 border-gray-800 uppercase text-center pb-3">Popisy (Grimoár)</h3>';
+        Object.entries(ROLES_DATA).forEach(([cat, roles]) => { 
+            html += `<h4 class="${COLORS[cat]} font-black mt-5 border-b border-gray-800 uppercase pb-2 tracking-widest text-sm" style="font-family: 'Cinzel', serif;">${cat}</h4>`; 
+            Object.entries(roles).forEach(([r, d]) => { 
+                html += `<div class="mb-3 leading-snug"><b class="text-white font-bold">${r}</b> <span class="text-gray-400 text-xs">${d}</span></div>`; 
+            }); 
+        });
+
+        list.innerHTML = html;
+    }
+
+    function renderTable() {
+        const container = document.getElementById('tableCircle'), radius = Math.min(container.offsetWidth, container.offsetHeight) / 2.8;
+        players.forEach((p, i) => {
+            let card = document.getElementById(`card-${p.id_custom}`);
+            if(!card) { card = document.createElement('div'); card.id = `card-${p.id_custom}`; card.className = 'player-card'; container.appendChild(card); }
+            const angle = (i * 2 * Math.PI) / players.length - Math.PI/2;
+            card.style.left = (container.offsetWidth/2 + radius * Math.cos(angle)) + 'px'; card.style.top = (container.offsetHeight/2 + radius * Math.sin(angle)) + 'px';
+            card.className = `player-card ${p.is_dead ? 'dead' : ''}`;
+            let roleToColor = isST ? p.role : myNotes[p.id_custom], colorClass = getRoleColorClass(roleToColor), label = isST ? (p.role || '?') : (p.id_custom === myId ? 'TY' : '👤');
+            
+            let statusIcon = "";
+            if(isST) {
+                if(p.status_drunk) statusIcon += "🍺";
+                if(p.status_poisoned) statusIcon += "🧪";
+                if(p.status_protected) statusIcon += "🛡️";
+                if(p.status_grandchild) statusIcon += "👶";
+            }
+
+            card.innerHTML = `
+                ${p.is_nominated ? '<div class="nomination-arrow">🔻</div>' : ''}
+                ${p.has_voted ? '<div class="paprcka">🖐️</div>' : ''}
+                <div class="token ${colorClass}" onclick="handleTokenClick('${p.id_custom}')">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase">${label}</span>
+                    ${statusIcon ? `<div class="status-badge">${statusIcon}</div>` : ''}
+                    ${myNotes[p.id_custom] ? `<div class="player-note">${myNotes[p.id_custom]}</div>` : ''}
+                </div>
+                <div class="text-xs font-black text-white uppercase truncate px-1" style="font-family: 'Cinzel', serif; letter-spacing: 1px;">${p.name}</div>`;
+        });
+    }
+
+    async function stAction(field) { 
+        if(!activeTarget) return; 
+        
+        if(field === 'is_nominated') {
+            await sb.from('players').update({ is_nominated: false }).eq('room_code', roomCode);
+        }
+
+        const newValue = !activeTarget[field]; 
+        await sb.from('players').update({ [field]: newValue }).eq('id_custom', activeTarget.id_custom); 
+        sync(); 
+    }
+
+    function handleTokenClick(tid) { 
+        const p = players.find(x => x.id_custom === tid); 
+        if(isST) { 
+            activeTarget = p; 
+            document.getElementById('targetName').innerText = p.name; 
+            document.getElementById('stModal').classList.remove('hidden'); 
+        } else if(tid === myId) {
+            toggleVote(); 
+        } else {
+            openNoteModal(p); 
+        }
+    }
+
+    async function toggleVote() { 
+        const me = players.find(p => p.id_custom === myId); 
+        await sb.from('players').update({ has_voted: !me.has_voted }).eq('id_custom', myId); 
+    }
+
+    async function distributeRoles() {
+        const count = players.length; if(!SETUP[count]) return alert("Potrebujete 5-12 hráčov!");
+        const [dCount, pCount, subCount, villCount] = SETUP[count];
+        let pool = []; 
+        pool.push(...shuffle(Object.keys(ROLES_DATA.DEMON)).slice(0, dCount)); 
+        pool.push(...shuffle(Object.keys(ROLES_DATA.POMOCNICI)).slice(0, pCount)); 
+        pool.push(...shuffle(Object.keys(ROLES_DATA.PODIVINI).filter(r=>r!=='OPILEC'&&r!=='VNUK')).slice(0, subCount)); 
+        pool.push(...shuffle(Object.keys(ROLES_DATA.DEDINCANIA)).slice(0, villCount));
+        pool = shuffle(pool);
+
+        for(let i=0; i < players.length; i++) { 
+            await sb.from('players').update({ 
+                role: pool[i], 
+                is_dead: false, 
+                has_voted: false, 
+                is_nominated: false,
+                status_drunk: false,
+                status_poisoned: false,
+                status_protected: false,
+                status_grandchild: false
+            }).eq('id_custom', players[i].id_custom); 
+        }
+        alert("Role rozdané!"); sync();
+    }
+
+    function openNoteModal(p) { 
+        activeTarget = p; document.getElementById('noteTargetName').innerText = p.name; const l = document.getElementById('noteRoleList'); l.innerHTML = `<button onclick="setNote('')" class="bg-gradient-to-r from-red-900 to-red-800 p-3 rounded-lg uppercase col-span-2 text-white shadow-lg hover:from-red-800 hover:to-red-700 transition">Zmazať</button>`; 
+        Object.entries(ROLES_DATA).forEach(([cat, roles]) => {
+            let color = cat === 'DEDINCANIA' ? 'from-green-700 to-green-800 hover:from-green-600 hover:to-green-700' : (cat === 'PODIVINI' ? 'from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600' : 'from-red-700 to-red-800 hover:from-red-600 hover:to-red-700');
+            Object.keys(roles).forEach(role => { l.innerHTML += `<button onclick="setNote('${role}')" class="bg-gradient-to-r ${color} p-3 rounded-lg uppercase text-white shadow-lg transition">${role}</button>`; });
+        });
+        document.getElementById('noteModal').classList.remove('hidden'); 
+    }
+
+    function setNote(role) { myNotes[activeTarget.id_custom] = role; localStorage.setItem('m_notes', JSON.stringify(myNotes)); renderTable(); closeNote(); }
+    function closeNote() { document.getElementById('noteModal').classList.add('hidden'); }
+    function closeSt() { document.getElementById('stModal').classList.add('hidden'); }
+
+    async function toggleTime() { 
+        const { data: gs } = await sb.from('game_state').select('*').eq('room_code', roomCode).single(); 
+        await sb.from('game_state').update({ is_night: !gs.is_night }).eq('room_code', roomCode); 
+    }
+
+    function renderChats() {
+        const container = document.getElementById('allChats'); let targets = [];
+        if(!isST) {
+            targets.push({ id: 'st_' + roomCode, name: 'Storyteller' }); const myIdx = players.findIndex(p => p.id_custom === myId);
+            if(myIdx !== -1 && players.length > 1) {
+                const l = players[(myIdx + players.length - 1) % players.length], r = players[(myIdx + 1) % players.length];
+                if(l && l.id_custom !== myId) targets.push({ id: l.id_custom, name: "⬅ " + l.name }); if(r && r.id_custom !== myId && r.id_custom !== l.id_custom) targets.push({ id: r.id_custom, name: "➡ " + r.name });
+            }
+        } else { players.forEach(p => targets.push({ id: p.id_custom, name: p.name })); }
+        container.querySelectorAll('[data-chat-id]').forEach(div => { if(!targets.find(t => t.id === div.getAttribute('data-chat-id'))) div.remove(); });
+        targets.forEach(t => {
+            if(!container.querySelector(`[data-chat-id="${t.id}"]`)) {
+                const div = document.createElement('div'); div.setAttribute('data-chat-id', t.id);
+                div.innerHTML = `<div class="section-header text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">${t.name}</div><div id="box-${t.id}" class="chat-box"></div><div class="flex gap-2 mt-2"><input id="in-${t.id}" onkeydown="if(event.key==='Enter') send('${t.id}')" class="flex-1 bg-black border-2 border-gray-800 text-xs p-3 text-white outline-none rounded-lg focus:border-red-600 transition"><button onclick="send('${t.id}')" class="bg-gradient-to-r from-red-900 to-red-800 hover:from-red-800 hover:to-red-700 px-4 rounded-lg text-white font-bold shadow-lg transition">></button></div>`;
+                container.appendChild(div);
+            }
+            loadMsgs(t.id);
+        });
+    }
+
+    async function loadMsgs(tid) { 
+        const { data: ms } = await sb.from('messages').select('*').eq('room_code', roomCode).or(`and(sender_id.eq.${myId},receiver_id.eq.${tid}),and(sender_id.eq.${tid},receiver_id.eq.${myId})`).order('created_at'); 
+        const box = document.getElementById(`box-${tid}`); 
+        if(box && ms) { 
+            box.innerHTML = ms.map(m => `<div class="msg ${m.sender_id === myId ? 'msg-me' : 'msg-them'}">${m.text}</div>`).join(''); 
+            box.scrollTop = box.scrollHeight; 
+        } 
+    }
+
+    async function send(tid) { 
+        const inp = document.getElementById(`in-${tid}`); 
+        if(!inp.value.trim()) return; 
+        await sb.from('messages').insert([{ sender_id: myId, receiver_id: tid, text: inp.value, room_code: roomCode }]); 
+        inp.value = ''; loadMsgs(tid); 
+    }
+
+    async function hardReset() { 
+        if(confirm("Zmazať hru?")) { 
+            await sb.from('players').delete().eq('room_code', roomCode); 
+            await sb.from('messages').delete().eq('room_code', roomCode); 
+            location.reload(); 
+        } 
+    }
+
+    function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
+</script>
+</body>
+</html> 
+            "
