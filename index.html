@@ -36,30 +36,22 @@
 
         .paprcka { position: absolute; top: -45px; left: 50%; transform: translateX(-50%); font-size: 35px; z-index: 100; animation: bounce 0.5s ease; }
         @keyframes bounce { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -10px); } }
+        
+        /* ŠÍPKA NOMINÁCIE */
+        .nomination-arrow { position: absolute; top: -75px; left: 50%; transform: translateX(-50%); font-size: 50px; z-index: 150; animation: point-anim 0.8s infinite alternate; filter: drop-shadow(0 0 10px #ef4444); }
+        @keyframes point-anim { from { top: -85px; } to { top: -65px; } }
+
         .chat-box { background: #080810; height: 120px; overflow-y: auto; font-size: 11px; padding: 8px; border: 1px solid #1a1a25; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; }
         .msg { padding: 4px 8px; border-radius: 4px; max-width: 85%; font-size: 11px; color: white; }
         .msg-me { background: #450a0a; align-self: flex-end; border: 1px solid #7f1d1d; }
         .msg-them { background: #1e1e2e; align-self: flex-start; border: 1px solid #312e81; }
         .player-note { position: absolute; bottom: -12px; background: #1d4ed8; color: white; font-size: 7px; padding: 1px 4px; border-radius: 3px; font-weight: bold; text-transform: uppercase; z-index: 50; }
         
-        /* Upravený status badge pre viac ikoniek */
         .status-badge { 
-            position: absolute; 
-            top: -10px; 
-            right: -10px; 
-            background: rgba(0,0,0,0.9); 
-            border-radius: 12px; 
-            padding: 2px 6px; 
-            min-width: 24px; 
-            height: 24px; 
-            font-size: 12px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            border: 1px solid #444;
-            z-index: 60;
-            white-space: nowrap;
-            box-shadow: 0 2px 5px black;
+            position: absolute; top: -10px; right: -10px; background: rgba(0,0,0,0.9); border-radius: 12px; 
+            padding: 2px 6px; min-width: 24px; height: 24px; font-size: 12px; display: flex; 
+            align-items: center; justify-content: center; border: 1px solid #444; z-index: 60;
+            white-space: nowrap; box-shadow: 0 2px 5px black;
         }
     </style>
 </head>
@@ -101,6 +93,7 @@
     <div class="bg-gray-900 p-6 rounded-xl border border-red-900 w-full max-w-sm text-center">
         <h2 id="targetName" class="text-xl font-bold mb-4 text-white uppercase italic"></h2>
         <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase">
+            <button onclick="stAction('is_nominated')" class="bg-orange-600 p-4 rounded text-white col-span-2 text-sm">📢 NOMINOVAŤ</button>
             <button onclick="stAction('is_dead')" class="bg-red-600 p-4 rounded text-white">Zabiť / Oživiť</button>
             <button onclick="stAction('status_drunk')" class="bg-amber-700 p-4 rounded text-white">🍺 OPITÝ</button>
             <button onclick="stAction('status_poisoned')" class="bg-purple-700 p-4 rounded text-white">🧪 OTRÁVENÝ</button>
@@ -239,7 +232,6 @@
             card.className = `player-card ${p.is_dead ? 'dead' : ''}`;
             let roleToColor = isST ? p.role : myNotes[p.id_custom], colorClass = getRoleColorClass(roleToColor), label = isST ? (p.role || '?') : (p.id_custom === myId ? 'TY' : '👤');
             
-            // Logika pre ikonky statusov
             let statusIcon = "";
             if(isST) {
                 if(p.status_drunk) statusIcon += "🍺";
@@ -248,7 +240,9 @@
                 if(p.status_grandchild) statusIcon += "👶";
             }
 
-            card.innerHTML = `${p.has_voted ? '<div class="paprcka">🖐️</div>' : ''}
+            card.innerHTML = `
+                ${p.is_nominated ? '<div class="nomination-arrow">🔻</div>' : ''}
+                ${p.has_voted ? '<div class="paprcka">🖐️</div>' : ''}
                 <div class="token ${colorClass}" onclick="handleTokenClick('${p.id_custom}')">
                     <span class="text-[9px] text-gray-500 font-bold uppercase">${label}</span>
                     ${statusIcon ? `<div class="status-badge">${statusIcon}</div>` : ''}
@@ -260,6 +254,12 @@
 
     async function stAction(field) { 
         if(!activeTarget) return; 
+        
+        // Ak nominujeme, zrušíme nomináciu u ostatných hráčov v miestnosti
+        if(field === 'is_nominated') {
+            await sb.from('players').update({ is_nominated: false }).eq('room_code', roomCode);
+        }
+
         const newValue = !activeTarget[field]; 
         await sb.from('players').update({ [field]: newValue }).eq('id_custom', activeTarget.id_custom); 
         sync(); 
@@ -298,6 +298,7 @@
                 role: pool[i], 
                 is_dead: false, 
                 has_voted: false, 
+                is_nominated: false,
                 status_drunk: false,
                 status_poisoned: false,
                 status_protected: false,
