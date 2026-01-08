@@ -13,6 +13,12 @@ CREATE TABLE public.game_state (
   current_nominee_id text,
   voting_active boolean DEFAULT false,
   votes_revealed boolean DEFAULT false,
+  nominated_player text,
+  votes jsonb DEFAULT '{}'::jsonb,
+  timer_total_seconds integer DEFAULT 0,
+  timer_running boolean DEFAULT false,
+  timer_remaining_seconds integer DEFAULT 0,
+  st_secret text,
   CONSTRAINT game_state_pkey PRIMARY KEY (room_code)
 );
 CREATE TABLE public.messages (
@@ -31,7 +37,7 @@ CREATE TABLE public.players (
   role text DEFAULT 'Dedinčan'::text,
   fake_role text,
   is_dead boolean DEFAULT false,
-  position real NOT NULL DEFAULT nextval('players_position_seq'::regclass),
+  position bigint NOT NULL DEFAULT nextval('players_position_seq'::regclass),
   status_poisoned boolean DEFAULT false,
   status_protected boolean DEFAULT false,
   status_drunk boolean DEFAULT false,
