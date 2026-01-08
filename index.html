@@ -1,376 +1,183 @@
+
 <!DOCTYPE html>
 <html lang="sk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Krvavý Kúcan</title>
+
+    <!-- Externé knižnice -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #050507; color: #d1d1d1; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; }
-        .grid-layout { display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: 70px 1fr; height: 100vh; }
-        header { transition: all 0.5s ease; border-bottom: 2px solid #1f1f2e; }
-        header.is-day { background: linear-gradient(to right, #1e3a8a, #0c0c12); border-bottom-color: #3b82f6; }
-        header.is-night { background: linear-gradient(to right, #450a0a, #050507); border-bottom-color: #ef4444; animation: pulse-night 3s infinite; }
-        @keyframes pulse-night {
-            0% { box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.1); }
-            50% { box-shadow: inset 0 0 40px rgba(239, 68, 68, 0.3); }
-            100% { box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.1); }
-        }
-        .time-badge { padding: 6px 16px; border-radius: 8px; font-weight: 900; font-size: 14px; letter-spacing: 1px; }
-        .badge-day { background: #3b82f6; color: white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
-        .badge-night { background: #ef4444; color: white; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); }
-        .sidebar { background: #0c0c12; border: 1px solid #1f1f2e; overflow-y: auto; padding: 15px; }
-        .main-area { background: radial-gradient(circle, #1a1a2e 0%, #050507 100%); position: relative; }
-        .player-card { position: absolute; width: 110px; transform: translate(-50%, -50%); z-index: 10; text-align: center; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        .token { width: 75px; height: 75px; border-radius: 50%; border: 4px solid #333; background: #111; margin: 0 auto 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: all 0.3s; }
-        .border-villager { border-color: #22c55e !important; box-shadow: 0 0 15px rgba(34, 197, 94, 0.3); }
-        .border-outsider { border-color: #f97316 !important; box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
-        .border-evil { border-color: #ef4444 !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.3); }
-        
-        .dead .token::after { 
-            content: '❌'; 
-            position: absolute; font-size: 40px; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            z-index: 20; opacity: 0.9; text-shadow: 0 0 10px black;
-        }
 
-        .paprcka { position: absolute; top: -45px; left: 50%; transform: translateX(-50%); font-size: 35px; z-index: 100; animation: bounce 0.5s ease; }
-        @keyframes bounce { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -10px); } }
-        
-        /* ŠÍPKA NOMINÁCIE */
-        .nomination-arrow { position: absolute; top: -75px; left: 50%; transform: translateX(-50%); font-size: 50px; z-index: 150; animation: point-anim 0.8s infinite alternate; filter: drop-shadow(0 0 10px #ef4444); }
-        @keyframes point-anim { from { top: -85px; } to { top: -65px; } }
+    <!-- Vlastné štýly -->
+    <link rel="stylesheet" href="styles.css" />
 
-        .chat-box { background: #080810; height: 120px; overflow-y: auto; font-size: 11px; padding: 8px; border: 1px solid #1a1a25; border-radius: 6px; display: flex; flex-direction: column; gap: 4px; }
-        .msg { padding: 4px 8px; border-radius: 4px; max-width: 85%; font-size: 11px; color: white; }
-        .msg-me { background: #450a0a; align-self: flex-end; border: 1px solid #7f1d1d; }
-        .msg-them { background: #1e1e2e; align-self: flex-start; border: 1px solid #312e81; }
-        .player-note { position: absolute; bottom: -12px; background: #1d4ed8; color: white; font-size: 7px; padding: 1px 4px; border-radius: 3px; font-weight: bold; text-transform: uppercase; z-index: 50; }
-        
-        .status-badge { 
-            position: absolute; top: -10px; right: -10px; background: rgba(0,0,0,0.9); border-radius: 12px; 
-            padding: 2px 6px; min-width: 24px; height: 24px; font-size: 12px; display: flex; 
-            align-items: center; justify-content: center; border: 1px solid #444; z-index: 60;
-            white-space: nowrap; box-shadow: 0 2px 5px black;
-        }
-    </style>
+    <!-- Aplikácia -->
+    <script src="app.js" defer></script>
 </head>
 <body>
 
-<div id="lobby" class="fixed inset-0 z-[3000] bg-black flex items-center justify-center p-6 text-center">
-    <div class="bg-gray-900 p-10 rounded-3xl border border-red-900 w-full max-w-md shadow-2xl">
-        <h1 class="text-4xl font-black text-red-700 mb-6 uppercase italic tracking-widest">KRVAVÝ KÚCAN</h1>
-        <input id="joinRoom" type="text" placeholder="KÓD MIESTNOSTI" class="w-full bg-black p-4 border border-gray-800 rounded-xl text-white mb-4 uppercase outline-none focus:border-red-600">
-        <input id="joinName" type="text" placeholder="TVOJE MENO" class="w-full bg-black p-4 border border-gray-800 rounded-xl text-white mb-6 outline-none focus:border-blue-600">
-        <button onclick="enterGame(false)" class="w-full bg-blue-700 hover:bg-blue-600 p-4 rounded-xl font-bold mb-2 uppercase transition">Vstúpiť ako Hráč</button>
-        <button onclick="enterGame(true)" class="w-full bg-red-900/40 hover:bg-red-900/60 p-4 rounded-xl font-bold border border-red-700 uppercase transition">Storyteller</button>
+<div class="embers"></div>
+
+<!-- Lobby -->
+<div id="lobby" class="fixed inset-0 z-[3000] flex items-center justify-center p-6 text-center">
+    <div class="lobby-box bg-gradient-to-br from-gray-900/95 via-black/95 to-gray-900/95 p-12 rounded-3xl border-2 border-red-900 w-full max-w-md shadow-2xl relative backdrop-blur-sm">
+        <div class="absolute inset-0 rounded-3xl opacity-20" style="background: radial-gradient(circle at center, rgba(139,0,0,0.3), transparent);"></div>
+
+        <h1 class="lobby-title relative text-5xl font-black text-red-700 mb-8 uppercase italic tracking-widest">KRVAVÝ KÚCAN</h1>
+
+        <div class="lobby-input relative mb-4">
+            <div class="input-icon">🚪</div>
+            <input id="joinRoom" type="text" placeholder="KÓD MIESTNOSTI" class="w-full bg-black/80 p-5 pl-14 border-2 border-gray-800 rounded-xl text-white uppercase outline-none font-bold tracking-wider backdrop-blur-sm transition-all duration-300 lobby-input">
+        </div>
+
+        <div class="lobby-input relative mb-6">
+            <div class="input-icon">👤</div>
+            <input id="joinName" type="text" placeholder="TVOJE MENO" class="w-full bg-black/80 p-5 pl-14 border-2 border-gray-800 rounded-xl text-white outline-none tracking-wide backdrop-blur-sm transition-all duration-300 lobby-input">
+        </div>
+
+        <button onclick="enterGame(false)" class="lobby-button relative w-full bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 p-5 rounded-xl font-bold mb-3 uppercase transition-all duration-300 shadow-lg hover:shadow-red-900/50 hover:scale-105">
+            🎭 Vstúpiť ako Hráč
+        </button>
+
+        <button onclick="enterGame(true)" class="lobby-button relative w-full bg-gradient-to-r from-red-900/50 to-red-800/50 hover:from-red-900/70 hover:to-red-800/70 p-5 rounded-xl font-bold border-2 border-red-700 uppercase transition-all duration-300 shadow-lg hover:scale-105">
+            📖 Storyteller
+        </button>
+
+        <div class="mt-6 text-center text-gray-500 text-[10px] uppercase tracking-widest" style="font-family: 'Cinzel', serif; opacity: 0.6; animation: footer-fade 1.5s ease-out 1.4s both;">
+            By JumalaLuke &amp; Yuuki
+        </div>
     </div>
 </div>
 
+<!-- Game Grid -->
 <div id="gameRoot" class="hidden grid-layout">
-    <header id="mainHeader" class="col-span-3 flex items-center justify-between px-6">
-        <div class="flex items-center gap-4 text-xs">
-            <div class="text-white font-bold uppercase bg-black/40 px-3 py-1 rounded italic">KRVAVÝ KÚCAN</div>
-            <div id="myInfo" class="text-gray-300 font-medium"></div>
+    <header id="mainHeader" class="col-span-3 flex items-center justify-between px-8">
+        <div class="flex items-center gap-4 text-sm">
+            <div class="text-white font-black uppercase bg-black/60 px-5 py-2 rounded-lg italic border border-red-900/30 shadow-lg" style="font-family: 'Cinzel', serif; letter-spacing: 2px;">KRVAVÝ KÚCAN</div>
+            <div id="myInfo" class="text-gray-300 font-medium tracking-wide"></div>
         </div>
-        <div id="stControls" class="hidden flex gap-2">
-            <button onclick="distributeRoles()" class="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded text-[11px] font-bold uppercase">Rozdať Role</button>
-            <button onclick="toggleTime()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded text-[11px] font-bold uppercase border border-white/20">Noc / Deň</button>
-            <button onclick="hardReset()" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-[11px] font-bold uppercase">Reset</button>
+
+        <div id="stControls" class="hidden flex gap-3">
+            <button onclick="distributeRoles()" class="st-btn st-btn-roles">
+                <span>🔮</span> Rozdať Osud
+            </button>
+            <button onclick="toggleTime()" class="st-btn st-btn-time">
+                <span>🌗</span> Cyklus
+            </button>
+            <button id="shufflePlayersBtn" onclick="shufflePlayers()" class="st-btn st-btn-time">
+                <span>🔀</span> Zamiešať hráčov
+            </button>
+            <button onclick="hardReset()" class="st-btn st-btn-reset">
+                <span>☠️</span> Zánik
+            </button>
         </div>
-        <div id="curTime" class="time-badge">DEŇ</div>
+
+        <div class="flex items-center gap-3">
+            <div id="aliveCounter" class="alive-counter">Živí: ?</div>
+            <div id="curTime" class="time-badge">DEŇ</div>
+        </div>
     </header>
 
-    <aside class="sidebar"><div id="roleList" class="space-y-4 text-[11px]"></div></aside>
-    <main class="main-area"><div id="tableCircle" class="w-full h-full relative"></div></main>
-    <aside class="sidebar border-l border-gray-800 flex flex-col gap-4">
-        <h3 class="text-[10px] font-black text-gray-500 border-b border-gray-800 uppercase text-center pb-2">Pošta</h3>
-        <div id="allChats" class="flex-1 overflow-y-auto space-y-6"></div>
+    <aside class="sidebar"><div id="roleList" class="space-y-4 text-xs"></div></aside>
+
+    <main class="main-area">
+        <div id="roundTable" class="round-table" title="Klikni (ST) pre nastavenie odpočtu">
+            <div id="votingButtons" class="hidden absolute inset-0 flex items-center justify-center gap-6 z-10">
+                <button id="voteYesBtn" class="vote-btn vote-yes">ÁNO</button>
+                <button id="voteNoBtn" class="vote-btn vote-no">NIE</button>
+            </div>
+
+            <!-- TIMER OVERLAY -->
+            <div id="timerOverlay" class="timer-overlay hidden">
+                <div class="timer-ring" style="--pct:0%;">
+                    <div class="timer-core">
+                        <div class="timer-text" id="timerText">00:00</div>
+                        <div class="timer-mini" id="timerMini">Odpočítavanie</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tableCircle" class="w-full h-full relative"></div>
+
+        <!-- ST: ovládanie hlasovania mimo stola -->
+        <div id="stVotingBar" class="st-voting-bar hidden">
+            <button onclick="endVoting()" class="st-voting-btn">Ukončiť hlasovanie</button>
+            <button onclick="cancelVoting()" class="st-voting-btn st-voting-cancel">Zrušiť</button>
+        </div>
+
+        <!-- NOMINATION BANNER (mimo stola) -->
+        <div id="nominationBanner" class="nomination-banner hidden">
+            <div class="nomination-banner-inner">
+                <span class="nomination-label">Nominovaný:</span>
+                <span id="nominationName" class="nomination-value">—</span>
+            </div>
+        </div>
+
+    </main>
+
+    <aside class="sidebar border-l-2 border-gray-800 flex flex-col gap-3">
+        <h3 class="section-header text-xs font-black text-gray-500 border-b-2 border-gray-800 uppercase text-center pb-2">Pošta</h3>
+        <div id="chatContacts" class="hidden chat-contacts-list"></div>
+        <div id="allChats" class="flex-1 overflow-y-auto"></div>
     </aside>
 </div>
 
-<div id="stModal" class="hidden fixed inset-0 bg-black/90 z-[4000] flex items-center justify-center">
-    <div class="bg-gray-900 p-6 rounded-xl border border-red-900 w-full max-w-sm text-center">
-        <h2 id="targetName" class="text-xl font-bold mb-4 text-white uppercase italic"></h2>
-        <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase">
-            <button onclick="stAction('is_nominated')" class="bg-orange-600 p-4 rounded text-white col-span-2 text-sm">📢 NOMINOVAŤ</button>
-            <button onclick="stAction('is_dead')" class="bg-red-600 p-4 rounded text-white">Zabiť / Oživiť</button>
-            <button onclick="stAction('status_drunk')" class="bg-amber-700 p-4 rounded text-white">🍺 OPITÝ</button>
-            <button onclick="stAction('status_poisoned')" class="bg-purple-700 p-4 rounded text-white">🧪 OTRÁVENÝ</button>
-            <button onclick="stAction('status_protected')" class="bg-blue-700 p-4 rounded text-white">🛡️ CHRÁNENÝ</button>
-            <button onclick="stAction('status_grandchild')" class="bg-green-700 p-4 rounded text-white col-span-2">👶 VNUK</button>
-            <button onclick="closeSt()" class="w-full mt-4 text-gray-500 underline col-span-2 text-xs">Zavrieť</button>
+<!-- ST Modal -->
+<div id="stModal" class="hidden fixed inset-0 bg-black/95 z-[4000] flex items-center justify-center backdrop-blur-sm">
+    <div class="bg-gradient-to-br from-gray-900 via-black to-gray-900 p-8 rounded-2xl border-2 border-red-900 w-full max-w-sm text-center shadow-2xl">
+        <h2 id="targetName" class="text-2xl font-bold mb-6 text-white uppercase italic" style="font-family: 'Cinzel', serif;"></h2>
+        <div class="grid grid-cols-2 gap-3 text-xs font-bold uppercase">
+            <button onclick="stAction('is_nominated')" class="bg-gradient-to-r from-orange-600 to-orange-700 p-5 rounded-lg text-white col-span-2 text-base shadow-lg hover:from-orange-500 hover:to-orange-600 transition">📢 NOMINOVAŤ</button>
+            <button onclick="stAction('is_dead')" class="bg-gradient-to-r from-red-600 to-red-700 p-5 rounded-lg text-white shadow-lg hover:from-red-500 hover:to-red-600 transition">Zabiť / Oživiť</button>
+            <button onclick="stAction('status_drunk')" class="bg-gradient-to-r from-amber-700 to-amber-800 p-5 rounded-lg text-white shadow-lg hover:from-amber-600 hover:to-amber-700 transition">🍺 OPITÝ</button>
+            <button onclick="stAction('status_poisoned')" class="bg-gradient-to-r from-purple-700 to-purple-800 p-5 rounded-lg text-white shadow-lg hover:from-purple-600 hover:to-purple-700 transition">🧪 OTRÁVENÝ</button>
+            <button onclick="stAction('status_protected')" class="bg-gradient-to-r from-blue-700 to-blue-800 p-5 rounded-lg text-white shadow-lg hover:from-blue-600 hover:to-blue-700 transition">🛡️ CHRÁNENÝ</button>
+            <button onclick="stAction('status_grandchild')" class="bg-gradient-to-r from-green-700 to-green-800 p-5 rounded-lg text-white col-span-2 shadow-lg hover:from-green-600 hover:to-green-700 transition">👶 VNUK</button>
+            <button onclick="closeSt()" class="w-full mt-5 text-gray-400 hover:text-white underline col-span-2 text-sm transition">Zavrieť</button>
         </div>
     </div>
 </div>
 
-<div id="noteModal" class="hidden fixed inset-0 bg-black/90 z-[4000] flex items-center justify-center p-4">
-    <div class="bg-gray-900 p-5 rounded-xl border border-blue-900 w-full max-w-sm max-h-[80vh] flex flex-col text-white">
-        <h2 id="noteTargetName" class="text-lg font-bold mb-4 uppercase text-center italic">Tip na rolu</h2>
-        <div id="noteRoleList" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 text-[9px] font-bold"></div>
-        <button onclick="closeNote()" class="mt-4 bg-gray-800 p-3 rounded font-bold uppercase text-[10px]">Zavrieť</button>
+<!-- NOTE Modal -->
+<div id="noteModal" class="hidden fixed inset-0 bg-black/95 z-[4000] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-gradient-to-br from-gray-900 via-black to-gray-900 p-6 rounded-2xl border-2 border-blue-900 w-full max-w-sm max-h-[80vh] flex flex-col text-white shadow-2xl">
+        <h2 id="noteTargetName" class="text-xl font-bold mb-5 uppercase text-center italic" style="font-family: 'Cinzel', serif;">Tip na rolu</h2>
+        <div id="noteRoleList" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 text-[10px] font-bold"></div>
+        <button onclick="closeNote()" class="mt-5 bg-gradient-to-r from-gray-800 to-gray-900 p-4 rounded-lg font-bold uppercase text-xs shadow-lg hover:from-gray-700 hover:to-gray-800 transition">Zavrieť</button>
     </div>
 </div>
 
-<script>
-    const u = 'https://frenqgaxsezwukljnwqe.supabase.co', k = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZyZW5xZ2F4c2V6d3VrbGpud3FlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MDU5NzUsImV4cCI6MjA4MzE4MTk3NX0.yTEWdNtl-vtr3o6mJZ1eEd8Ut2qo_pGlE1LjxybRLk8';
-    const sb = supabase.createClient(u, k);
+<!-- VOTING Modal -->
+<div id="votingModal" class="hidden fixed inset-0 bg-black/95 z-[4000] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-gradient-to-br from-gray-900 via-black to-gray-900 p-8 rounded-2xl border-2 border-orange-900 w-full max-w-4xl max-h-[90vh] flex flex-col text-white shadow-2xl">
+        <h2 id="votingTitle" class="text-2xl font-bold mb-6 text-center uppercase italic" style="font-family: 'Cinzel', serif;">Hlasovanie</h2>
+        <div id="votingControls" class="mb-6 flex justify-center gap-4"></div>
+        <div id="votingCards" class="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </div>
+</div>
 
-    let myId = localStorage.getItem('m_id'), roomCode = null, isST = false, players = [], myNotes = JSON.parse(localStorage.getItem('m_notes') || '{}'), activeTarget = null;
+<!-- TIMER Modal (ST only) -->
+<div id="timerModal" class="hidden fixed inset-0 bg-black/90 z-[4500] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="modal-inner p-6 w-full max-w-sm text-white" style="background:linear-gradient(135deg,#0b0a0d 0%,#1a0f13 100%); border:2px solid #8b0000; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+        <h2 class="text-2xl font-black uppercase italic text-center mb-4" style="font-family:'Cinzel',serif">Odpočítavanie</h2>
+        <div class="space-y-3">
+            <label class="text-xs uppercase tracking-widest text-gray-400">Minúty</label>
+            <input id="timerMinutes" type="number" min="1" max="180" value="10" class="w-full bg-black/60 border-2 border-gray-800 text-white rounded-lg p-3 focus:border-red-700 outline-none">
+            <div class="grid grid-cols-2 gap-3 mt-3">
+                <button onclick="startTimerFromModal()" class="st-btn st-btn-time p-3 text-sm">▶️ Spustiť</button>
+                <button onclick="closeTimerModal()" class="st-btn st-btn-reset p-3 text-sm">✖️ Zavrieť</button>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mt-2">
+                <button onclick="pauseTimer()" class="st-btn st-btn-time p-3 text-xs">⏸️ Pozastaviť</button>
+                <button onclick="resumeTimer()" class="st-btn st-btn-time p-3 text-xs">⏵ Pokračovať</button>
+                <button onclick="resetTimer()" class="st-btn st-btn-reset p-3 text-xs">⟲ Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-    const ROLES_DATA = {
-        DEMON: { "MIGMIGMAN": "Každú noc musí zabiť jedného hráča, ale môže aj streliť do mŕtvoly." },
-        POMOCNICI: { 
-            "TRÁVIČ": "Každú noc môže otráviť jedného hráča. Otrávenému hráčovi schopnosť danú noc a deň nefunguje.",
-            "ŠARLOTOVÁ DÁMA": "Akonáhle bude Démon popravený tak sa ŠD stane Démonom.",
-            "ŠPIÓN": "Každú noc dostane info o roli jedného vybraného hráča.",
-            "MIGAL": "Ak je v hre, 1 z dedinčanov sa stáva opilcom. Migal o tom vie, ale opilec netuší, že je opitý."
-        },
-        PODIVINI: { 
-            "OPILEC": "myslí si, že má inú rolu, než v skutočnosti má. To znamená, že jeho schopnosť nefunguje správne.",
-            "ANDEL": "Ak bude Anjel popravený počas dňa, dobro okamžite prehrá.",
-            "NEŠIKA": "keď zomrieš, musíš vybrať hráča; ak je zlý, dobro prehrá.",
-            "ŠAŠO": "Pre všetky schopnosti Dedinčanov sa javí ako ZLO.",
-            "BABIČKA": "Vie kto je jej VNUK a ma na starosti ho chrániť.(Ked je v hre babička je tam aj vnuk, no vnuk sa neberie ako Podivín)",
-            "VNUK": "Ked zomrieš , zomiera aj tvoja BABIČKA (O tom, že je VNUK hráč nevie a má normálne priradenú rolu od Dedinčanov)."
-        },
-        DEDINCANIA: { 
-            "VOJAK": "Nemôže byť zabitý Démonom v noci.",
-            "DETEKTÍV": "Každú noc vyberie 2 hráčov a zistí, či je aspoň 1 zlý",
-            "OCHRANCA": "Každú noc vyberie hráča na ochranu. Ak tento hráč zomrie, Ochranca zomrie miesto neho.",
-            "HROBNÍK": "Ak je niekto popravený ( Nie zabitý Démonom) , následnú noc zisti ako rola bol.",
-            "LOVEC": "Raz za hru počas dňa môže vystreliť na hráča, pokiaľ to bol Démon tak zomrie.",
-            "VEŠTKYŇA": "Každú noc vyberie 2 hráčov a zistí, či je jeden z nich Démon.",
-            "DRBNA": "Na začiatku hry dostane info o tom, že 1 z 2 hráčov je nejaká rola.",
-            "HAVRAN": "Ak je HAVRAN v noci zabitý, dostane info o roli hráča, ktorého si ešte v tu noc vyberie.",
-            "GEMBLÉR": "Každú noc môže vybrať jedného hráča, ak to je zlý tak to zistí, ak ale bol dobrý, GEMBLÉR zomiera.",
-            "STAROSTA": "Pokiaľ je živý jeho hlas ma hodnotu za 2 ľudí, akonáhle zomrie je z neho obyčajný dedinčan ."
-        }
-    };
-
-    const SETUP = { 5:[1,1,1,2], 6:[1,1,1,3], 7:[1,1,2,3], 8:[1,1,3,3], 9:[1,2,2,4], 10:[1,2,2,5], 11:[1,2,3,5], 12:[1,3,2,6] };
-
-    function getRoleColorClass(roleName) {
-        if (!roleName) return "";
-        if (Object.keys(ROLES_DATA.DEDINCANIA).includes(roleName)) return "border-villager";
-        if (Object.keys(ROLES_DATA.PODIVINI).includes(roleName)) return "border-outsider";
-        return "border-evil"; 
-    }
-
-    async function enterGame(asST) {
-        isST = asST; roomCode = document.getElementById('joinRoom').value.trim().toUpperCase();
-        if(!roomCode) return;
-        if (isST) { myId = 'st_' + roomCode; await sb.from('game_state').upsert({ room_code: roomCode, is_night: false }); } 
-        else { const n = document.getElementById('joinName').value.trim(); if(!n) return; myId = 'p_' + Date.now(); await sb.from('players').insert([{ id_custom: myId, name: n, room_code: roomCode, position: Date.now() }]); }
-        localStorage.setItem('m_id', myId);
-        document.getElementById('lobby').classList.add('hidden'); document.getElementById('gameRoot').classList.remove('hidden');
-        sync(); setInterval(sync, 2500);
-    }
-
-    async function sync() {
-        const { data: ps } = await sb.from('players').select('*').eq('room_code', roomCode).order('id', { ascending: true });
-        const { data: gs } = await sb.from('game_state').select('*').eq('room_code', roomCode).maybeSingle();
-        players = ps || [];
-        if(gs) {
-            const b = document.getElementById('curTime'), h = document.getElementById('mainHeader');
-            if (gs.is_night) { b.innerText = '🌙 NOC'; b.className = 'time-badge badge-night'; h.className = 'col-span-3 flex items-center justify-between px-6 is-night'; }
-            else { b.innerText = '☀️ DEŇ'; b.className = 'time-badge badge-day'; h.className = 'col-span-3 flex items-center justify-between px-6 is-day'; }
-        }
-        const me = players.find(p => p.id_custom === myId);
-        if(!isST && me) document.getElementById('myInfo').innerHTML = `${me.name} | <b class="text-blue-400 uppercase font-black">${me.role || 'ČAKÁ SA NA ROLU'}</b>`;
-        else if(isST) { document.getElementById('stControls').classList.remove('hidden'); document.getElementById('myInfo').innerText = "STORYTELLER"; }
-        renderTable(); renderChats(); renderGrimoire();
-    }
-
-    function renderGrimoire() {
-        const list = document.getElementById('roleList');
-        const COLORS = { DEDINCANIA: 'text-green-500', PODIVINI: 'text-orange-500', DEMON: 'text-red-500', POMOCNICI: 'text-red-500' };
-        let html = '';
-
-        if (isST) {
-            html += '<h3 class="text-[10px] font-black text-red-500 mb-4 border-b border-gray-800 uppercase text-center pb-2 tracking-widest">ST PREHĽAD ROLÍ</h3>';
-            players.forEach(p => {
-                let roleColor = "text-gray-500";
-                if (Object.keys(ROLES_DATA.DEDINCANIA).includes(p.role)) roleColor = "text-green-500";
-                else if (Object.keys(ROLES_DATA.PODIVINI).includes(p.role)) roleColor = "text-orange-500";
-                else if (p.role) roleColor = "text-red-500";
-                
-                let statuses = '';
-                if(p.status_drunk) statuses += '🍺';
-                if(p.status_poisoned) statuses += '🧪';
-                if(p.status_protected) statuses += '🛡️';
-                if(p.status_grandchild) statuses += '👶';
-
-                html += `
-                    <div class="flex flex-col py-2 border-b border-gray-900">
-                        <span class="text-white font-black uppercase text-[12px]">${p.name} ${p.is_dead ? '💀' : ''}</span>
-                        <span class="${roleColor} font-bold text-[10px] tracking-wider">${p.role || 'ŽIADNA ROLA'} ${statuses}</span>
-                    </div>
-                `;
-            });
-            html += '<div class="my-8 border-t-2 border-red-900/30"></div>';
-        }
-
-        html += '<h3 class="text-[10px] font-black text-gray-500 mb-4 border-b border-gray-800 uppercase text-center pb-2">Popisy (Grimoár)</h3>';
-        Object.entries(ROLES_DATA).forEach(([cat, roles]) => { 
-            html += `<h4 class="${COLORS[cat]} font-black mt-4 border-b border-gray-800 uppercase pb-1 tracking-widest">${cat}</h4>`; 
-            Object.entries(roles).forEach(([r, d]) => { 
-                html += `<div class="mb-1 leading-tight"><b class="text-white">${r}</b> <span class="text-gray-400">${d}</span></div>`; 
-            }); 
-        });
-
-        list.innerHTML = html;
-    }
-
-    function renderTable() {
-        const container = document.getElementById('tableCircle'), radius = Math.min(container.offsetWidth, container.offsetHeight) / 2.8;
-        players.forEach((p, i) => {
-            let card = document.getElementById(`card-${p.id_custom}`);
-            if(!card) { card = document.createElement('div'); card.id = `card-${p.id_custom}`; card.className = 'player-card'; container.appendChild(card); }
-            const angle = (i * 2 * Math.PI) / players.length - Math.PI/2;
-            card.style.left = (container.offsetWidth/2 + radius * Math.cos(angle)) + 'px'; card.style.top = (container.offsetHeight/2 + radius * Math.sin(angle)) + 'px';
-            card.className = `player-card ${p.is_dead ? 'dead' : ''}`;
-            let roleToColor = isST ? p.role : myNotes[p.id_custom], colorClass = getRoleColorClass(roleToColor), label = isST ? (p.role || '?') : (p.id_custom === myId ? 'TY' : '👤');
-            
-            let statusIcon = "";
-            if(isST) {
-                if(p.status_drunk) statusIcon += "🍺";
-                if(p.status_poisoned) statusIcon += "🧪";
-                if(p.status_protected) statusIcon += "🛡️";
-                if(p.status_grandchild) statusIcon += "👶";
-            }
-
-            card.innerHTML = `
-                ${p.is_nominated ? '<div class="nomination-arrow">🔻</div>' : ''}
-                ${p.has_voted ? '<div class="paprcka">🖐️</div>' : ''}
-                <div class="token ${colorClass}" onclick="handleTokenClick('${p.id_custom}')">
-                    <span class="text-[9px] text-gray-500 font-bold uppercase">${label}</span>
-                    ${statusIcon ? `<div class="status-badge">${statusIcon}</div>` : ''}
-                    ${myNotes[p.id_custom] ? `<div class="player-note">${myNotes[p.id_custom]}</div>` : ''}
-                </div>
-                <div class="text-[10px] font-black text-white uppercase truncate px-1">${p.name}</div>`;
-        });
-    }
-
-    async function stAction(field) { 
-        if(!activeTarget) return; 
-        
-        // Ak nominujeme, zrušíme nomináciu u ostatných hráčov v miestnosti
-        if(field === 'is_nominated') {
-            await sb.from('players').update({ is_nominated: false }).eq('room_code', roomCode);
-        }
-
-        const newValue = !activeTarget[field]; 
-        await sb.from('players').update({ [field]: newValue }).eq('id_custom', activeTarget.id_custom); 
-        sync(); 
-    }
-
-    function handleTokenClick(tid) { 
-        const p = players.find(x => x.id_custom === tid); 
-        if(isST) { 
-            activeTarget = p; 
-            document.getElementById('targetName').innerText = p.name; 
-            document.getElementById('stModal').classList.remove('hidden'); 
-        } else if(tid === myId) {
-            toggleVote(); 
-        } else {
-            openNoteModal(p); 
-        }
-    }
-
-    async function toggleVote() { 
-        const me = players.find(p => p.id_custom === myId); 
-        await sb.from('players').update({ has_voted: !me.has_voted }).eq('id_custom', myId); 
-    }
-
-    async function distributeRoles() {
-        const count = players.length; if(!SETUP[count]) return alert("Potrebujete 5-12 hráčov!");
-        const [dCount, pCount, subCount, villCount] = SETUP[count];
-        let pool = []; 
-        pool.push(...shuffle(Object.keys(ROLES_DATA.DEMON)).slice(0, dCount)); 
-        pool.push(...shuffle(Object.keys(ROLES_DATA.POMOCNICI)).slice(0, pCount)); 
-        pool.push(...shuffle(Object.keys(ROLES_DATA.PODIVINI).filter(r=>r!=='OPILEC'&&r!=='VNUK')).slice(0, subCount)); 
-        pool.push(...shuffle(Object.keys(ROLES_DATA.DEDINCANIA)).slice(0, villCount));
-        pool = shuffle(pool);
-
-        for(let i=0; i < players.length; i++) { 
-            await sb.from('players').update({ 
-                role: pool[i], 
-                is_dead: false, 
-                has_voted: false, 
-                is_nominated: false,
-                status_drunk: false,
-                status_poisoned: false,
-                status_protected: false,
-                status_grandchild: false
-            }).eq('id_custom', players[i].id_custom); 
-        }
-        alert("Role rozdané!"); sync();
-    }
-
-    function openNoteModal(p) { 
-        activeTarget = p; document.getElementById('noteTargetName').innerText = p.name; const l = document.getElementById('noteRoleList'); l.innerHTML = `<button onclick="setNote('')" class="bg-red-900 p-2 rounded uppercase col-span-2 text-white">Zmazať</button>`; 
-        Object.entries(ROLES_DATA).forEach(([cat, roles]) => {
-            let color = cat === 'DEDINCANIA' ? 'bg-green-700' : (cat === 'PODIVINI' ? 'bg-orange-600' : 'bg-red-700');
-            Object.keys(roles).forEach(role => { l.innerHTML += `<button onclick="setNote('${role}')" class="${color} p-2 rounded uppercase text-white hover:opacity-80 transition">${role}</button>`; });
-        });
-        document.getElementById('noteModal').classList.remove('hidden'); 
-    }
-
-    function setNote(role) { myNotes[activeTarget.id_custom] = role; localStorage.setItem('m_notes', JSON.stringify(myNotes)); renderTable(); closeNote(); }
-    function closeNote() { document.getElementById('noteModal').classList.add('hidden'); }
-    function closeSt() { document.getElementById('stModal').classList.add('hidden'); }
-
-    async function toggleTime() { 
-        const { data: gs } = await sb.from('game_state').select('*').eq('room_code', roomCode).single(); 
-        await sb.from('game_state').update({ is_night: !gs.is_night }).eq('room_code', roomCode); 
-    }
-
-    function renderChats() {
-        const container = document.getElementById('allChats'); let targets = [];
-        if(!isST) {
-            targets.push({ id: 'st_' + roomCode, name: 'Storyteller' }); const myIdx = players.findIndex(p => p.id_custom === myId);
-            if(myIdx !== -1 && players.length > 1) {
-                const l = players[(myIdx + players.length - 1) % players.length], r = players[(myIdx + 1) % players.length];
-                if(l && l.id_custom !== myId) targets.push({ id: l.id_custom, name: "⬅ " + l.name }); if(r && r.id_custom !== myId && r.id_custom !== l.id_custom) targets.push({ id: r.id_custom, name: "➡ " + r.name });
-            }
-        } else { players.forEach(p => targets.push({ id: p.id_custom, name: p.name })); }
-        container.querySelectorAll('[data-chat-id]').forEach(div => { if(!targets.find(t => t.id === div.getAttribute('data-chat-id'))) div.remove(); });
-        targets.forEach(t => {
-            if(!container.querySelector(`[data-chat-id="${t.id}"]`)) {
-                const div = document.createElement('div'); div.setAttribute('data-chat-id', t.id);
-                div.innerHTML = `<div class="text-[9px] font-bold text-gray-500 mb-1 uppercase">${t.name}</div><div id="box-${t.id}" class="chat-box"></div><div class="flex gap-1 mt-1"><input id="in-${t.id}" onkeydown="if(event.key==='Enter') send('${t.id}')" class="flex-1 bg-black border border-gray-800 text-[10px] p-2 text-white outline-none rounded"><button onclick="send('${t.id}')" class="bg-red-900 px-3 rounded text-white font-bold">></button></div>`;
-                container.appendChild(div);
-            }
-            loadMsgs(t.id);
-        });
-    }
-
-    async function loadMsgs(tid) { 
-        const { data: ms } = await sb.from('messages').select('*').eq('room_code', roomCode).or(`and(sender_id.eq.${myId},receiver_id.eq.${tid}),and(sender_id.eq.${tid},receiver_id.eq.${myId})`).order('created_at'); 
-        const box = document.getElementById(`box-${tid}`); 
-        if(box && ms) { 
-            box.innerHTML = ms.map(m => `<div class="msg ${m.sender_id === myId ? 'msg-me' : 'msg-them'}">${m.text}</div>`).join(''); 
-            box.scrollTop = box.scrollHeight; 
-        } 
-    }
-
-    async function send(tid) { 
-        const inp = document.getElementById(`in-${tid}`); 
-        if(!inp.value.trim()) return; 
-        await sb.from('messages').insert([{ sender_id: myId, receiver_id: tid, text: inp.value, room_code: roomCode }]); 
-        inp.value = ''; loadMsgs(tid); 
-    }
-
-    async function hardReset() { 
-        if(confirm("Zmazať hru?")) { 
-            await sb.from('players').delete().eq('room_code', roomCode); 
-            await sb.from('messages').delete().eq('room_code', roomCode); 
-            location.reload(); 
-        } 
-    }
-
-    function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
-</script>
 </body>
 </html>
